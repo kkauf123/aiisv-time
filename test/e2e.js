@@ -28,7 +28,7 @@ const {chromium}=require('playwright'); const out=process.argv[2];
  await m.click('[data-open="INT-001"]');await m.waitForSelector('.grid, .empty');await m.waitForTimeout(300);
  await m.screenshot({path:out+'/5_admin_sheet.png',fullPage:true});
  const mm=await b.newPage({viewport:{width:1200,height:900}});await mm.goto('http://localhost:8787/?t=tok_mgr_two_0000000000001');await mm.waitForSelector('.kpis');
- console.log('farooq sees:',await mm.textContent('.sub'));
+ console.log('manager two sees:',await mm.textContent('.sub'));
  // mobile
  const mo=await b.newPage({viewport:{width:390,height:844},isMobile:true});mo.on('pageerror',e=>errs.push(e.message));
  await mo.goto('http://localhost:8787/?t=tok_intern_a_000000000001');await mo.waitForSelector('.grid');
