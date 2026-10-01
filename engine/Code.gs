@@ -683,6 +683,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('Time Tracker')
     .addItem('Add intern…', 'menuAddIntern')
     .addItem('Deactivate intern…', 'menuDeactivate')
+    .addItem('Send links to all active interns', 'menuSendAllLinks')
     .addItem('Resend intern link…', 'menuResend')
     .addItem('Reset intern link…', 'menuReset')
     .addSeparator()
@@ -766,6 +767,17 @@ function deactivateIntern(o) {
   sh.getRange(i.rowNum, 8).setValue(ymd_(o.end) || today_());
   sh.getRange(i.rowNum, 9).setValue('Inactive');
   return i.name + ' deactivated.';
+}
+
+function menuSendAllLinks() {
+  var ui = SpreadsheetApp.getUi();
+  var list = interns_().filter(function (i) { return i.status.toLowerCase() === 'active' && i.email; });
+  if (ui.alert('Send links', 'Email a timesheet link to ' + list.length + ' active intern(s)?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  list.forEach(function (i) {
+    if (!i.token) { i.token = newToken_(); sh_(TAB.roster).getRange(i.rowNum, 10).setValue(i.token); }
+    sendInternLink_(i);
+  });
+  ui.alert(list.length + ' link(s) sent.');
 }
 
 function menuResend() { dialog_('Resend intern link', [{ name: 'id', label: 'Intern', options: internOptions_(true) }], 'resendLink', 'Sends the same link again.'); }
