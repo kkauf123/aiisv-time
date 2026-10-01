@@ -22,7 +22,7 @@ Last updated: Oct 1, 2026. Add a row whenever a document, file or account is cre
 | Asset | Location | Owner / account | Notes |
 |---|---|---|---|
 | Website | https://time.aiisv.org | GitHub kkauf123 (Pages) | HTTPS enforced |
-| Code repo | https://github.com/kkauf123/aiisv-time | kkauf123 | Public. Code and anonymized tests only. `docs/` holds the PRD and this registry. |
+| Code repo | https://github.com/kkauf123/aiisv-time | kkauf123 | Public. Code, anonymized tests and this registry only. The PRD lives only in the Claude project. |
 | Data Sheet | https://docs.google.com/spreadsheets/d/1HOt_71-EWBIOph8jTIcbYfqH1rutzZ7TraeraJ_qElY/edit | assessmentaiisv@gmail.com | Private |
 | Apps Script project "AIISV Time Tracker" | Bound to the Sheet | assessmentaiisv@gmail.com | Web app deployed: Execute as Me, Access Anyone |
 | Web app endpoint | https://script.google.com/macros/s/AKfycbwkLnUgi4j99A9ZhV1dOW23AkNXO3CwRMRatB-wiBecE-87jj55wa762EE13ahMziFz/exec | — | Referenced in `config.js` |
