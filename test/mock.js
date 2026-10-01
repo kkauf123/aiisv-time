@@ -9,10 +9,10 @@ function mkSheet(rows){return{rows,getLastRow(){return this.rows.length},getLast
  appendRow(a){this.rows.push(a)},deleteRow(n){this.rows.splice(n-1,1)},hideSheet(){},protect(){return{setDescription(){return this},setWarningOnly(){}}}}}
 const seb=JSON.parse(fs.readFileSync(__dirname+'/seed_entries.json'));
 const sheets={
- Roster:mkSheet([['h'],['INT-001','Test Intern A','a@x.com','', 'Manager One','manager.one@example.org','2026-06-29','','Active','tok_intern_sebastian_0001','',''],
-  ['INT-002','Test Intern B','b@x.com','','Manager One','manager.one@example.org','2026-09-28','','Active','tok_intern_kai_00000000001','',''],
-  ['INT-003','Test Intern C','c@x.com','','Manager Two','manager.two@example.org','2026-09-28','','Active','tok_intern_ainesh_000000001','','']]),
- Managers:mkSheet([['h'],['Admin User','admin@example.org','Admin','tok_admin_kent_000000000001','Yes'],['Manager One','manager.one@example.org','Manager','tok_mgr_manoj_000000000001','Yes'],['Manager Two','manager.two@example.org','Manager','tok_mgr_farooq_00000000001','Yes']]),
+ Roster:mkSheet([['h'],['INT-001','Test Intern A','a@x.com','', 'Manager One','manager.one@example.org','2026-06-29','','Active','tok_intern_a_000000000001','',''],
+  ['INT-002','Test Intern B','b@x.com','','Manager One','manager.one@example.org','2026-09-28','','Active','tok_intern_b_000000000001','',''],
+  ['INT-003','Test Intern C','c@x.com','','Manager Two','manager.two@example.org','2026-09-28','','Active','tok_intern_c_000000000001','','']]),
+ Managers:mkSheet([['h'],['Admin User','admin@example.org','Admin','tok_admin_000000000000001','Yes'],['Manager One','manager.one@example.org','Manager','tok_mgr_one_0000000000001','Yes'],['Manager Two','manager.two@example.org','Manager','tok_mgr_two_0000000000001','Yes']]),
  Entries:mkSheet([['h'],...seb]),'Change Log':mkSheet([['h']]),Unlocks:mkSheet([['h'],['INT-001','Test Intern A','2026-02-02','2026-10-10','k','test']]),
  Sessions:mkSheet([['h']]),Settings:mkSheet([['k','v'],['Site URL','http://localhost:8787'],['Task Types','General Marketing, General Engineering, General Administrative, General Research, LMS, Community, Website, Other'],['Lock After Months','6'],['Overtime Daily Threshold','8'],['Tracking Start','2025-12-29'],['Last Report Sent','2026-09-28'],['Require Description','Yes'],['Reminder Day','Friday']])};
 const sent=[];const cache={};

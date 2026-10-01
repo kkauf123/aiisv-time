@@ -1,7 +1,7 @@
 const {chromium}=require('playwright'); const out=process.argv[2];
 (async()=>{const b=await chromium.launch();const errs=[];
  const p=await b.newPage({viewport:{width:1200,height:900}});p.on('pageerror',e=>errs.push(e.message));p.on('dialog',d=>d.accept());
- await p.goto('http://localhost:8787/?t=tok_intern_sebastian_0001');await p.waitForSelector('.grid, .empty');
+ await p.goto('http://localhost:8787/?t=tok_intern_a_000000000001');await p.waitForSelector('.grid, .empty');
  await p.screenshot({path:out+'/1_intern_thisweek.png',fullPage:true});
  // enter hours on current week
  const r=p.locator('tbody tr').first();
@@ -22,18 +22,18 @@ const {chromium}=require('playwright'); const out=process.argv[2];
  const ms=await (await fetch('http://localhost:8787/_sheets')).json();console.log('log rows:',ms.log.length-1, JSON.stringify(ms.log.slice(1,3)));
  // manager
  const m=await b.newPage({viewport:{width:1200,height:900}});m.on('pageerror',e=>errs.push(e.message));
- await m.goto('http://localhost:8787/?t=tok_admin_kent_000000000001');await m.waitForSelector('.kpis');
+ await m.goto('http://localhost:8787/?t=tok_admin_000000000000001');await m.waitForSelector('.kpis');
  await m.click('.seg button[data-p=thisyear]');await m.waitForSelector('.kpis');await m.waitForTimeout(400);
  await m.screenshot({path:out+'/4_admin_dash.png',fullPage:true});
  await m.click('[data-open="INT-001"]');await m.waitForSelector('.grid, .empty');await m.waitForTimeout(300);
  await m.screenshot({path:out+'/5_admin_sheet.png',fullPage:true});
- const mm=await b.newPage({viewport:{width:1200,height:900}});await mm.goto('http://localhost:8787/?t=tok_mgr_farooq_00000000001');await mm.waitForSelector('.kpis');
+ const mm=await b.newPage({viewport:{width:1200,height:900}});await mm.goto('http://localhost:8787/?t=tok_mgr_two_0000000000001');await mm.waitForSelector('.kpis');
  console.log('farooq sees:',await mm.textContent('.sub'));
  // mobile
  const mo=await b.newPage({viewport:{width:390,height:844},isMobile:true});mo.on('pageerror',e=>errs.push(e.message));
- await mo.goto('http://localhost:8787/?t=tok_intern_sebastian_0001');await mo.waitForSelector('.grid');
+ await mo.goto('http://localhost:8787/?t=tok_intern_a_000000000001');await mo.waitForSelector('.grid');
  await mo.screenshot({path:out+'/6_mobile.png',fullPage:true});
  console.log('overflow mobile:',await mo.evaluate(()=>document.documentElement.scrollWidth));
- const d=await b.newPage({viewport:{width:1200,height:900},colorScheme:'dark'});await d.goto('http://localhost:8787/?t=tok_intern_sebastian_0001');await d.waitForSelector('.grid');
+ const d=await b.newPage({viewport:{width:1200,height:900},colorScheme:'dark'});await d.goto('http://localhost:8787/?t=tok_intern_a_000000000001');await d.waitForSelector('.grid');
  await d.screenshot({path:out+'/7_dark.png'});
  console.log('errors:',errs);await b.close()})();

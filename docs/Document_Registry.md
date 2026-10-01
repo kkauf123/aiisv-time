@@ -33,4 +33,4 @@ Last updated: Oct 1, 2026. Add a row whenever a document, file or account is cre
 ## Change history
 | Date | Change |
 |---|---|
-| Oct 1, 2026 | v1 built and launched. Sheet created, Sebastian's July hours imported, site and engine deployed, emailed-code sign-in added. Roster updated. |
+| Oct 1, 2026 | v1 built and launched. Sheet created, an intern's July hours imported, site and engine deployed, emailed-code sign-in added. Roster updated. |
