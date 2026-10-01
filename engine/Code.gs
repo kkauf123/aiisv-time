@@ -19,7 +19,7 @@ var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 var TAB = {
   roster: 'Roster', managers: 'Managers', entries: 'Entries',
-  log: 'Change Log', unlocks: 'Unlocks', settings: 'Settings'
+  log: 'Change Log', unlocks: 'Unlocks', settings: 'Settings', sessions: 'Sessions'
 };
 
 /* =================================================================
@@ -251,7 +251,8 @@ function settings_() {
     trackingStart: ymd_(s['Tracking Start']) || '2025-12-29',
     fromName: String(s['From Name'] || 'AIISV Time Tracker'),
     lastReport: ymd_(s['Last Report Sent']),
-    requireDesc: String(s['Require Description'] || 'Yes').toLowerCase().indexOf('y') === 0
+    requireDesc: String(s['Require Description'] || 'Yes').toLowerCase().indexOf('y') === 0,
+    signInDays: Number(s['Sign-in Days']) || 30
   };
 }
 
@@ -321,7 +322,14 @@ function handle_(req) {
     var who = resolve_(String(req.t || ''));
     if (!who) throw new Error('This link is not valid. Ask your manager for a new one.');
     var action = String(req.action || 'me');
-    if (action === 'me') out = apiMe_(who);
+    if (action === 'sendCode') out = apiSendCode_(who);
+    else if (action === 'verify') out = apiVerify_(who, req);
+    else if (!checkSession_(who, String(req.s || ''))) {
+      out = { ok: false, needSignIn: true, email: maskEmail_(contactEmail_(who)), error: 'Sign in to continue.' };
+      return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+    }
+    else if (action === 'signout') out = apiSignOut_(who, String(req.s || ''));
+    else if (action === 'me') out = apiMe_(who);
     else if (action === 'week') out = apiWeek_(who, req);
     else if (action === 'save') out = apiSave_(who, req);
     else if (action === 'dashboard') out = apiDashboard_(who, req);
@@ -332,6 +340,105 @@ function handle_(req) {
   }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
+
+/* ---------- Sign-in: emailed 6-digit code, then a device session ---------- */
+
+function ownerKey_(who) { return who.role === 'intern' ? 'intern:' + who.intern.id : 'mgr:' + who.manager.email; }
+function contactEmail_(who) { return who.role === 'intern' ? who.intern.email : who.manager.email; }
+function displayName_(who) { return who.role === 'intern' ? who.intern.name : who.manager.name; }
+
+function maskEmail_(e) {
+  var m = String(e || '').match(/^([^@]*)@(.*)$/);
+  if (!m) return '';
+  return m[1].slice(0, 2) + '•••@' + m[2];
+}
+
+function sha_(s) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s, Utilities.Charset.UTF_8)
+    .map(function (b) { return ((b + 256) % 256).toString(16); }).map(function (x) { return x.length < 2 ? '0' + x : x; }).join('');
+}
+
+function apiSendCode_(who) {
+  var email = contactEmail_(who);
+  if (!email) throw new Error('No email on file. Ask your manager to add one.');
+  if (who.role === 'intern' && who.intern.status.toLowerCase() !== 'active') {
+    // inactive interns can still view, so they can still sign in
+  }
+  var cache = CacheService.getScriptCache(), key = 'code:' + ownerKey_(who);
+  var rateKey = 'rate:' + ownerKey_(who), rate = JSON.parse(cache.get(rateKey) || '{"n":0,"last":0}');
+  var now = Date.now();
+  if (now - rate.last < 45000) throw new Error('A code was just sent. Check your inbox (and spam), or wait a minute to send another.');
+  if (rate.n >= 6) throw new Error('Too many codes requested. Try again in an hour.');
+  var code = String(Math.floor(100000 + Math.random() * 900000));
+  cache.put(key, JSON.stringify({ h: sha_(code), tries: 0 }), 600);
+  cache.put(rateKey, JSON.stringify({ n: rate.n + 1, last: now }), 3600);
+  var s = settings_();
+  MailApp.sendEmail({
+    to: email, name: s.fromName, subject: 'Your AIISV sign-in code: ' + code,
+    htmlBody: '<div style="font-family:Calibri,Segoe UI,Roboto,Arial,sans-serif;color:#262b2d;font-size:15px;max-width:520px">'
+      + '<p>Hi ' + esc_(displayName_(who).split(' ')[0]) + ',</p><p>Your sign-in code for the AIISV Intern Time Tracker is:</p>'
+      + '<p style="font-size:30px;font-weight:bold;letter-spacing:6px;margin:10px 0">' + code + '</p>'
+      + '<p>It expires in 10 minutes. If you didn’t ask for it, ignore this email — nobody can get in without it.</p></div>'
+  });
+  return { sent: true, email: maskEmail_(email) };
+}
+
+function apiVerify_(who, req) {
+  var cache = CacheService.getScriptCache(), key = 'code:' + ownerKey_(who);
+  var rec = JSON.parse(cache.get(key) || 'null');
+  if (!rec) throw new Error('That code has expired. Send a new one.');
+  if (rec.tries >= 5) { cache.remove(key); throw new Error('Too many tries. Send a new code.'); }
+  var code = String(req.code || '').replace(/\D/g, '');
+  if (sha_(code) !== rec.h) {
+    rec.tries++; cache.put(key, JSON.stringify(rec), 600);
+    throw new Error('That code isn’t right. ' + (5 - rec.tries) + ' tries left.');
+  }
+  cache.remove(key);
+  var s = settings_(), session = newToken_(), now = new Date();
+  var expires = new Date(now.getTime() + s.signInDays * 86400000);
+  sessionsSheet_().appendRow([sha_(session), ownerKey_(who), nowStamp_(), Utilities.formatDate(expires, TZ, 'yyyy-MM-dd HH:mm'), String(req.device || '').slice(0, 120)]);
+  return { session: session, days: s.signInDays };
+}
+
+function sessionsSheet_() {
+  var ss = ss_(), sh = ss.getSheetByName(TAB.sessions);
+  if (!sh) {
+    sh = ss.insertSheet(TAB.sessions);
+    sh.appendRow(['Session (hashed)', 'Who', 'Signed In', 'Expires', 'Device']);
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+function checkSession_(who, session) {
+  if (!session || session.length < 16) return false;
+  var h = sha_(session), key = ownerKey_(who), now = nowStamp_();
+  var cache = CacheService.getScriptCache(), ck = 'sess:' + h;
+  if (cache.get(ck) === key) return true;
+  var rows = readTable_(TAB.sessions);
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i][0] === h && rows[i][1] === key && String(rows[i][3]) > now) { cache.put(ck, key, 1800); return true; }
+  }
+  return false;
+}
+
+function apiSignOut_(who, session) {
+  removeSessions_(function (r) { return r[0] === sha_(session); });
+  return { signedOut: true };
+}
+
+/** Deletes session rows matching a test (used by sign-out, reset link and deactivate). */
+function removeSessions_(test) {
+  var sh = sessionsSheet_(), last = sh.getLastRow();
+  if (last < 2) return 0;
+  var rows = sh.getRange(2, 1, last - 1, 5).getValues(), n = 0;
+  for (var i = rows.length - 1; i >= 0; i--) {
+    if (test(rows[i])) { sh.deleteRow(i + 2); CacheService.getScriptCache().remove('sess:' + rows[i][0]); n++; }
+  }
+  return n;
+}
+
+function signOutEverywhere_(ownerKey) { return removeSessions_(function (r) { return r[1] === ownerKey; }); }
 
 function resolve_(token) {
   if (!token || token.length < 16) return null;
@@ -659,7 +766,8 @@ function sendInternLink_(i) {
     + '<li>Missed a week? Use the arrows or the week strip to go back and fill it in. Weeks older than ' + s.lockMonths + ' months are locked.</li>'
     + '<li>Overtime (over ' + s.otThreshold + ' hours in a day) is calculated for you.</li></ul>'
     + '<p>Your manager is ' + esc_(i.manager) + '.</p>'
-    + '<p style="color:#6b6b66;font-size:13px">Keep this link private — anyone with it can edit your timesheet.</p></div>';
+    + '<p>The first time you open it on a phone or computer, we’ll email you a 6-digit sign-in code. That device then stays signed in for ' + s.signInDays + ' days.</p>'
+    + '<p style="color:#6b6b66;font-size:13px">Please don’t forward this email.</p></div>';
   MailApp.sendEmail({ to: i.email, name: s.fromName, subject: 'Your AIISV timesheet link', htmlBody: body });
   sh_(TAB.roster).getRange(i.rowNum, 11).setValue(nowStamp_());
 }
@@ -671,7 +779,8 @@ function sendManagerLink_(m) {
     + '<p>Here is your link to the AIISV intern hours dashboard. It shows ' + (m.role === 'admin' ? 'all interns' : 'the interns who report to you') + ', and you can open any of their timesheets.</p>'
     + '<p><a href="' + link + '" style="background:#e9bf35;color:#141414;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:bold;display:inline-block">Open dashboard</a></p>'
     + '<p>You’ll also get a summary email every Monday, plus monthly, quarterly and yearly roll-ups.</p>'
-    + '<p style="color:#6b6b66;font-size:13px">Keep this link private.</p></div>';
+    + '<p>The first time you open it on a device, we’ll email you a 6-digit sign-in code.</p>'
+    + '<p style="color:#6b6b66;font-size:13px">Please don’t forward this email.</p></div>';
   MailApp.sendEmail({ to: m.email, name: s.fromName, subject: 'Your AIISV intern dashboard link', htmlBody: body });
 }
 
@@ -686,6 +795,7 @@ function onOpen() {
     .addItem('Send links to all active interns', 'menuSendAllLinks')
     .addItem('Resend intern link…', 'menuResend')
     .addItem('Reset intern link…', 'menuReset')
+    .addItem('Sign someone out of all devices…', 'menuSignOut')
     .addSeparator()
     .addItem('Unlock a week…', 'menuUnlock')
     .addSeparator()
@@ -766,6 +876,7 @@ function deactivateIntern(o) {
   var sh = sh_(TAB.roster);
   sh.getRange(i.rowNum, 8).setValue(ymd_(o.end) || today_());
   sh.getRange(i.rowNum, 9).setValue('Inactive');
+  signOutEverywhere_('intern:' + i.id);
   return i.name + ' deactivated.';
 }
 
@@ -795,9 +906,17 @@ function resetLink(o) {
   if (!i) throw new Error('Intern not found.');
   i.token = newToken_();
   sh_(TAB.roster).getRange(i.rowNum, 10).setValue(i.token);
+  signOutEverywhere_('intern:' + i.id);
   if (i.status.toLowerCase() === 'active') sendInternLink_(i);
   return 'New link created for ' + i.name + '.';
 }
+
+function menuSignOut() {
+  var opts = interns_().map(function (i) { return { value: 'intern:' + i.id, label: i.name + ' (intern)' }; })
+    .concat(managers_().map(function (m) { return { value: 'mgr:' + m.email, label: m.name + ' (' + m.role + ')' }; }));
+  dialog_('Sign out of all devices', [{ name: 'who', label: 'Person', options: opts }], 'signOutPerson', 'Ends every signed-in session. Their link still works, but they’ll need a new emailed code.');
+}
+function signOutPerson(o) { var n = signOutEverywhere_(String(o.who)); return n + ' session' + (n === 1 ? '' : 's') + ' ended.'; }
 
 function menuUnlock() {
   dialog_('Unlock a week', [
@@ -845,6 +964,9 @@ function menuTestReport() {
 /** Run once (and any time something seems off): fills missing tokens, formats tabs, installs triggers. */
 function setup() {
   var s = settings_();
+  sessionsSheet_();
+  if (!readTable_(TAB.settings).some(function (r) { return r[0] === 'Sign-in Days'; }))
+    sh_(TAB.settings).appendRow(['Sign-in Days', 30, 'How long a device stays signed in after entering an emailed code']);
   var rs = sh_(TAB.roster);
   interns_().forEach(function (i) { if (!i.token) rs.getRange(i.rowNum, 10).setValue(newToken_()); });
   var ms = sh_(TAB.managers);

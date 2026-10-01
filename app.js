@@ -39,19 +39,28 @@
     return fmt(m[1]) + ', ' + hr + ':' + m[3] + ' ' + ap;
   }
 
+  /* ---------- session (set after the emailed code is verified) ---------- */
+  var SKEY = 'aiisv_s_' + token.slice(0, 12), session = '';
+  try { session = localStorage.getItem(SKEY) || ''; } catch (e) { /* storage unavailable */ }
+  function setSession(v) { session = v; try { if (v) localStorage.setItem(SKEY, v); else localStorage.removeItem(SKEY); } catch (e) { } }
+
   /* ---------- API ---------- */
   function get(action, extra) {
-    var q = new URLSearchParams(Object.assign({ action: action, t: token }, extra || {}));
+    var q = new URLSearchParams(Object.assign({ action: action, t: token, s: session }, extra || {}));
     return fetch(API + '?' + q.toString()).then(parse);
   }
   function post(action, body) {
     return fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(Object.assign({ action: action, t: token }, body))
+      body: JSON.stringify(Object.assign({ action: action, t: token, s: session }, body))
     }).then(parse);
   }
   function parse(r) {
-    return r.json().then(function (j) { if (!j.ok) throw new Error(j.error || 'Something went wrong.'); return j; });
+    return r.json().then(function (j) {
+      if (j.needSignIn) { setSession(''); showSignIn(j.email); var e = new Error('signin'); e.signin = true; throw e; }
+      if (!j.ok) throw new Error(j.error || 'Something went wrong.');
+      return j;
+    });
   }
 
   /* ---------- state ---------- */
@@ -68,11 +77,60 @@
     return;
   }
 
-  get('me').then(function (r) {
-    me = r;
-    document.getElementById('who').innerHTML = esc(me.name) + (me.role !== 'intern' ? ' <span class="pill">' + (me.role === 'admin' ? 'Admin' : 'Manager') + '</span>' : '');
-    if (me.role === 'intern') renderIntern(); else renderManager();
-  }).catch(function (e) { fail(e.message); });
+  function start() {
+    get('me').then(function (r) {
+      me = r;
+      document.getElementById('who').innerHTML = '<span class="nm">' + esc(me.name) + (me.role !== 'intern' ? ' <span class="pill">' + (me.role === 'admin' ? 'Admin' : 'Manager') + '</span>' : '') + '</span>'
+        + ' <button class="btn ghost signout" id="signout">Sign out</button>';
+      document.getElementById('signout').onclick = function () {
+        if (S.dirty && !confirm('You have unsaved changes. Sign out anyway?')) return;
+        S.dirty = false;
+        get('signout').catch(function () { }).then(function () { setSession(''); location.reload(); });
+      };
+      if (me.role === 'intern') renderIntern(); else renderManager();
+    }).catch(function (e) { if (!e.signin) fail(e.message); });
+  }
+  start();
+
+  /* ---------- sign-in screen ---------- */
+  function showSignIn(masked) {
+    S.dirty = false;
+    document.getElementById('who').innerHTML = '';
+    var b = document.getElementById('bar'); if (b) b.innerHTML = '';
+    app.innerHTML = '<div class="wrap"><div class="card signin"><h1>Sign in</h1>'
+      + '<p class="sub">For your security, we’ll email a 6-digit code to <b>' + esc(masked) + '</b>. You’ll only need to do this once on this device.</p>'
+      + '<div id="step1"><button class="btn primary" id="send">Email me a code</button></div>'
+      + '<form id="step2" hidden><label for="code"><b>Enter the code</b></label>'
+      + '<div class="coderow"><input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">'
+      + '<button class="btn primary" type="submit" id="verify">Sign in</button></div>'
+      + '<button class="btn ghost" type="button" id="resend">Send a new code</button></form>'
+      + '<p class="msg" id="smsg"></p></div></div>';
+    var smsg = document.getElementById('smsg');
+    function say(t, kind) { smsg.textContent = t; smsg.className = 'msg ' + (kind || ''); }
+    function send(btn) {
+      btn.disabled = true; say('Sending…');
+      get('sendCode').then(function (r) {
+        document.getElementById('step1').hidden = true;
+        document.getElementById('step2').hidden = false;
+        say('Code sent to ' + r.email + '. It expires in 10 minutes. Check spam if you don’t see it.', 'ok');
+        document.getElementById('code').focus();
+      }).catch(function (e) { say(e.message, 'err'); }).then(function () { btn.disabled = false; });
+    }
+    document.getElementById('send').onclick = function () { send(this); };
+    document.getElementById('resend').onclick = function () { send(this); };
+    document.getElementById('code').oninput = function () { this.value = this.value.replace(/\D/g, '').slice(0, 6); say(''); };
+    document.getElementById('step2').onsubmit = function (ev) {
+      ev.preventDefault();
+      var code = document.getElementById('code').value;
+      if (code.length !== 6) { say('Enter the 6-digit code from the email.', 'err'); return; }
+      var vb = document.getElementById('verify'); vb.disabled = true; say('Checking…');
+      post('verify', { code: code, device: navigator.userAgent }).then(function (r) {
+        setSession(r.session);
+        app.innerHTML = '<div class="center"><div class="spinner"></div>Loading…</div>';
+        start();
+      }).catch(function (e) { say(e.message, 'err'); vb.disabled = false; });
+    };
+  }
 
   window.addEventListener('beforeunload', function (e) { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
 

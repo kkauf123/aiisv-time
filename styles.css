@@ -171,11 +171,21 @@ table.list .n { text-align: right; font-variant-numeric: tabular-nums; }
 .center { text-align: center; padding: 80px 20px; }
 .spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.signin { max-width: 480px; margin: 48px auto; padding: 28px; }
+.signin h1 { margin-top: 0; }
+.signin label { display: block; margin: 6px 0; }
+.coderow { display: flex; gap: 8px; margin-bottom: 10px; }
+.coderow input { flex: 1; min-width: 0; height: 44px; font-size: 22px; letter-spacing: 6px; text-align: center; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); }
+.signin .msg { font-size: 14px; min-height: 20px; margin: 12px 0 0; }
+.signin .msg.err { color: var(--red-ink); }
+.signin .msg.ok { color: var(--teal-ink); }
+.topbar .signout { color: #cfcdc4; padding: 4px 8px; font-size: 13px; }
+.topbar .signout:hover { background: #2c2c2a; color: #fff; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 @media (max-width: 760px) {
   h1 { font-size: 24px; }
-  .topbar .who { display: none; }
+  .topbar .who .nm { display: none; }
   .brand { font-size: 13px; }
   .grid tfoot tr { border-top: 2px solid var(--ink); padding-top: 8px; }
   .grid tfoot td { border-top: none !important; padding-top: 0; }
