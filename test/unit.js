@@ -1,0 +1,26 @@
+// Unit tests for the engine's pure functions. Run: node test/unit.js
+const fs = require('fs'), vm = require('vm'), a = require('assert');
+const E = {}; vm.createContext(E); vm.runInContext(fs.readFileSync(__dirname + '/../engine/Code.gs', 'utf8'), E);
+a.equal(E.mondayOf_('2026-10-01'), '2026-09-28');
+a.equal(E.mondayOf_('2026-10-04'), '2026-09-28');
+a.equal(E.addMonths_('2026-08-31', -6), '2026-02-28');
+a.equal(E.isLocked_('2026-03-23', '2026-10-01', 6, ''), true);
+a.equal(E.isLocked_('2026-03-30', '2026-10-01', 6, ''), false);
+a.equal(E.isLocked_('2026-03-23', '2026-10-01', 6, '2026-10-10'), false);
+a.deepEqual(JSON.parse(JSON.stringify(E.splitOvertime_([{ date: 'd1', hours: 6 }, { date: 'd1', hours: 3.5 }, { date: 'd2', hours: 2 }], 8))), { regular: 10, overtime: 1.5, total: 11.5 });
+const rows = [{ task: 'Website', desc: 'a', hours: [1, 0, 0, 0, 0, 0, 2] }, { task: 'LMS', desc: 'b', hours: [0, 0.25, 0, 0, 0, 0, 0] }];
+const en = E.gridToEntries_('2026-09-28', rows); a.equal(en.length, 3); a.equal(en[1].date, '2026-10-04');
+a.deepEqual(JSON.parse(JSON.stringify(E.entriesToGrid_('2026-09-28', en))), rows);
+a.equal(E.diffEntries_(en, en).length, 0);
+a.throws(() => E.cleanRows_([{ task: 'X', desc: 'd', hours: [1] }], ['LMS'], true), /Unknown task/);
+a.throws(() => E.cleanRows_([{ task: 'LMS', desc: '', hours: [1] }], ['LMS'], true), /description/);
+a.throws(() => E.cleanRows_([{ task: 'LMS', desc: 'x', hours: [20] }, { task: 'LMS', desc: 'y', hours: [5] }], ['LMS'], true), /24/);
+const j = x => JSON.parse(JSON.stringify(x));
+a.deepEqual(j(E.reportPeriod_('weekly', '2026-10-05')), { from: '2026-09-28', to: '2026-10-04' });
+a.deepEqual(j(E.reportPeriod_('quarterly', '2026-10-01')), { from: '2026-07-01', to: '2026-09-30' });
+a.deepEqual(j(E.reportsDue_('2027-01-01')), ['monthly', 'quarterly', 'yearly']);
+a.deepEqual(j(E.reportsDue_('2026-10-05')), ['weekly']);
+const ints = [{ id: 'I1', name: 'S', manager: 'M', start: '2026-06-29', end: '', status: 'Active' }];
+const s = E.summarize_(ints, [{ internId: 'I1', date: '2026-07-01', task: 'LMS', desc: 'x', hours: 9 }], '2026-07-01', '2026-07-31', 8);
+a.equal(s.total, 9); a.equal(s.overtime, 1); a.deepEqual(j(s.interns[0].missingWeeks), ['2026-07-06', '2026-07-13', '2026-07-20']);
+console.log('unit tests passed');

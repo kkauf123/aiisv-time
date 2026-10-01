@@ -7,3 +7,8 @@ Site for **https://time.aiisv.org**: interns log hours one week at a time; manag
 - `engine/Code.gs`: the Apps Script engine. A copy lives in the **AIISV Intern Time Tracker** Google Sheet (assessmentaiisv@gmail.com) under Extensions → Apps Script. This file is the reference copy.
 
 Data, the roster, the change log and settings all live in that Google Sheet. Each person opens the site through a private link (`?t=…`) that the Sheet's **Time Tracker** menu emails to them.
+
+## More
+- `docs/PRD_and_Spec.md`: requirements, architecture, data model, API and security
+- `docs/Document_Registry.md`: where every file and account lives
+- `test/`: unit tests and a mock-backed browser test harness (see `test/README.md`)
