@@ -992,11 +992,9 @@ function setup() {
   ScriptApp.newTrigger('runDailyJobs').timeBased().everyDays(1).atHour(s.reportHour).inTimezone(TZ).create();
   ScriptApp.newTrigger('runReminders').timeBased().everyDays(1).atHour(s.reminderHour).inTimezone(TZ).create();
 
-  try {
-    SpreadsheetApp.getUi().alert('Setup complete',
-      'Tokens created and email schedule installed.\n\nNext: Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone), then send the web app URL to Claude.',
-      SpreadsheetApp.getUi().ButtonSet.OK);
-  } catch (e) { /* running without UI */ }
+  // toast, not alert: an alert would hold the run open until someone clicks OK in the Sheet
+  try { ss_().toast('Links created and email schedule installed.', 'Setup complete', 8); } catch (e) { }
+  Logger.log('Setup complete');
 }
 
 // ---- end of file ----
