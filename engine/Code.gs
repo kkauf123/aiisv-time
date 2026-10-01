@@ -999,10 +999,4 @@ function setup() {
   } catch (e) { /* running without UI */ }
 }
 
-// Node test hook (ignored by Apps Script)
-if (typeof module !== 'undefined') module.exports = {
-  ymd_: ymd_, addDays_: addDays_, mondayOf_: mondayOf_, addMonths_: addMonths_, isLocked_: isLocked_,
-  splitOvertime_: splitOvertime_, gridToEntries_: gridToEntries_, entriesToGrid_: entriesToGrid_,
-  diffEntries_: diffEntries_, cleanRows_: cleanRows_, reportPeriod_: reportPeriod_, reportsDue_: reportsDue_,
-  priorPeriod_: priorPeriod_, summarize_: summarize_, weeksBetween_: weeksBetween_, reportHtml_: reportHtml_
-};
+// ---- end of file ----
